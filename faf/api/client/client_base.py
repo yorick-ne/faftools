@@ -32,11 +32,21 @@ class BaseApiClient:
         """
         pass
 
-    def deserialize_obj(self, obj, many=False):
+    def deserialize_obj(self, obj):
         first = obj.get('data', {})
-        type_ = first.get('type', None)
-        schema = API_TYPES.get(type_)
-        result, errors = schema.load(obj, many=many)
+        if isinstance(first, list):
+            many = True
+        elif isinstance(first, dict):
+            many = False
+        else:
+            raise ApiException("Unknown Data Format")
+
+        if many:
+            type_ = first[0].get('type', None)
+        else:
+            type_ = first.get('type', None)
+        schema = API_TYPES.get(type_)()
+        result, errors = schema.load(obj, many=True)
         if errors:
             raise ApiException(errors)
         return result
@@ -52,7 +62,7 @@ class BaseApiClient:
         """
         response = self._session.get(self._base_url + url, headers=self._headers)
         decoded = json.loads(response.content.decode('utf-8'))
-        return self.deserialize_obj(decoded, len(decoded.get('data', [])) > 1)
+        return self.deserialize_obj(decoded)
 
     def post(self, url, **kwargs):
         """
